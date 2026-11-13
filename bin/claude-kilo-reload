@@ -1,0 +1,19 @@
+#!/bin/bash
+set -uo pipefail
+root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+cd "$root"
+check='
+import sys, yaml
+try:
+    c = yaml.safe_load(open("config.yaml"))
+    assert isinstance(c, dict) and c.get("model_list"), "model_list missing"
+except Exception as e:
+    print(f"{type(e).__name__}: {e}")
+    sys.exit(1)
+'
+if ! err="$(.venv/bin/python -I -c "$check" 2>&1)"; then
+  echo "$(date '+%F %T') config.yaml invalid, proxy left running: ${err//$'\n'/ }"
+  exit 0
+fi
+echo "$(date '+%F %T') change detected, restarting proxy"
+launchctl kickstart -k "gui/$(id -u)/claude-kilo.proxy"

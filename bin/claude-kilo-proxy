@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+keys="${XDG_CONFIG_HOME:-$HOME/.config}/claude-kilo"
+[ -f "$root/claude-kilo.env" ] && . "$root/claude-kilo.env"
+cd "$root"
+export KILO_API_KEY="$(cat "$keys/kilo.key")"
+export KILO_BEARER="Bearer ${KILO_API_KEY}"
+export LITELLM_MASTER_KEY="$(cat "$keys/master.key")"
+export KILO_ORG_ID="${KILO_ORG_ID:-}"
+if grep -q 'os.environ/KILO_ORG_ID' config.yaml && [ -z "$KILO_ORG_ID" ]; then
+  echo "claude-kilo-proxy: config.yaml bills an organization but KILO_ORG_ID is empty in claude-kilo.env" >&2
+  exit 1
+fi
+exec .venv/bin/litellm --config config.yaml --host 127.0.0.1 --port "${KILO_PROXY_PORT:-4000}"

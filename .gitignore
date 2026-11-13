@@ -1,0 +1,7 @@
+.venv/
+config.yaml
+config.yaml.bak.*
+agents.json
+claude-kilo.env
+claude-kilo.env.tmp
+logs/

@@ -1,0 +1,70 @@
+model_list:
+  - model_name: claude-opus-5.5
+    litellm_params:
+      model: anthropic/anthropic/claude-opus-5.5
+      api_base: https://api.kilo.ai/api/gateway
+      extra_headers:
+        Authorization: os.environ/KILO_BEARER
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-sonnet-5.5
+    litellm_params:
+      model: anthropic/anthropic/claude-sonnet-5.5
+      api_base: https://api.kilo.ai/api/gateway
+      extra_headers:
+        Authorization: os.environ/KILO_BEARER
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-haiku-5.5
+    litellm_params:
+      model: anthropic/anthropic/claude-haiku-5.5
+      api_base: https://api.kilo.ai/api/gateway
+      extra_headers:
+        Authorization: os.environ/KILO_BEARER
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-gpt-6.1-sol
+    litellm_params:
+      model: openai/openai/gpt-6.1-sol
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-gemini-4-carbon
+    litellm_params:
+      model: openai/google/gemini-4-carbon
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-kimi-k3.1-pro
+    litellm_params:
+      model: openai/moonshotai/kimi-k3.1-pro
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-glm-5.3
+    litellm_params:
+      model: openai/z-ai/glm-5.3
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-glm-5.3-flash
+    litellm_params:
+      model: openai/z-ai/glm-5.3-flash
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+  - model_name: claude-compat-deepseek-v4.1-flash-1017
+    litellm_params:
+      model: openai/deepseek/deepseek-v4.1-flash-1017
+      api_base: https://ai-gateway.kilo.ai/api/v1
+      api_key: os.environ/KILO_API_KEY
+      extra_headers:
+        X-KiloCode-OrganizationId: os.environ/KILO_ORG_ID
+
+litellm_settings:
+  drop_params: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

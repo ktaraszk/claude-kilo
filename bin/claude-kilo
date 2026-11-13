@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euo pipefail
+root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+keys="${XDG_CONFIG_HOME:-$HOME/.config}/claude-kilo"
+[ -f "$root/claude-kilo.env" ] && . "$root/claude-kilo.env"
+port="${KILO_PROXY_PORT:-4000}"
+
+if ! curl -sf -m 2 "http://127.0.0.1:${port}/health/liveliness" >/dev/null; then
+  echo "claude-kilo: no proxy on 127.0.0.1:${port}" >&2
+  echo "start it with: $root/bin/claude-kilo-proxy   (or install autostart: $root/install.sh --autostart)" >&2
+  exit 1
+fi
+
+export ANTHROPIC_BASE_URL="http://127.0.0.1:${port}"
+export ANTHROPIC_AUTH_TOKEN="$(cat "$keys/master.key")"
+export ANTHROPIC_API_KEY=""
+export ANTHROPIC_DEFAULT_OPUS_MODEL="${KILO_OPUS:-claude-opus-5.5}"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="${KILO_SONNET:-claude-sonnet-5.5}"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="${KILO_HAIKU:-claude-haiku-5.5}"
+export ANTHROPIC_MODEL="${KILO_MODEL:-$ANTHROPIC_DEFAULT_SONNET_MODEL}"
+if [ -n "${KILO_SUBAGENT:-}" ]; then
+  export CLAUDE_CODE_SUBAGENT_MODEL="$KILO_SUBAGENT"
+fi
+export CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1
+export CLAUDE_CODE_RESUME_HINT_COMMAND=claude-kilo
+
+if [ -f "$root/agents.json" ]; then
+  for arg in "$@"; do
+    case "$arg" in
+      --agents|--agents=*) exec claude "$@" ;;
+    esac
+  done
+  exec claude --agents "$(cat "$root/agents.json")" "$@"
+fi
+exec claude "$@"

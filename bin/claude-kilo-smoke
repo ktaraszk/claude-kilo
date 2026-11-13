@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+model="${1:?usage: claude-kilo-smoke <model-name from config.yaml>}"
+root="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+work="$(mktemp -d)"
+conf="$(mktemp -d)"
+trap 'rm -rf "$work" "$conf"' EXIT
+cd "$work"
+CLAUDE_CONFIG_DIR="$conf" KILO_MODEL="$model" KILO_OPUS="$model" KILO_SONNET="$model" KILO_HAIKU="$model" "$root/bin/claude-kilo" \
+  -p "Create a file fizzbuzz.py that prints FizzBuzz for the numbers 1 to 15, one per line. Then run it with: python3 fizzbuzz.py. Finally reply with only the last line it printed." \
+  --allowedTools Write "Bash(python3 fizzbuzz.py)" --max-turns 8 --output-format json < /dev/null > result.json 2>/dev/null || true
+expected="$(python3 -I -c 'print("\n".join("FizzBuzz" if i%15==0 else "Fizz" if i%3==0 else "Buzz" if i%5==0 else str(i) for i in range(1,16)))')"
+actual="$(python3 fizzbuzz.py 2>/dev/null || true)"
+[ "$actual" = "$expected" ] && file_ok=PASS || file_ok=FAIL
+python3 -I -c '
+import json, sys
+try:
+    d = json.load(open("result.json"))
+except Exception as e:
+    print(sys.argv[1], "| no result:", e, "| file:", sys.argv[2])
+    sys.exit(1)
+u = d.get("usage") or {}
+print(sys.argv[1], "|", d.get("subtype"), "| turns", d.get("num_turns"), "| reply", repr((d.get("result") or "")[:60]), "| file", sys.argv[2], "| input", u.get("input_tokens"), "cache_write", u.get("cache_creation_input_tokens"), "cache_read", u.get("cache_read_input_tokens"), "output", u.get("output_tokens"))
+' "$model" "$file_ok"
