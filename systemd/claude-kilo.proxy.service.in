@@ -1,0 +1,14 @@
+[Unit]
+Description=Claude Code proxy through Kilo Gateway
+
+[Service]
+Type=simple
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/bin/claude-kilo-proxy
+Restart=always
+RestartSec=5
+StandardOutput=append:@ROOT@/logs/proxy.log
+StandardError=append:@ROOT@/logs/proxy.log
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch Claude Kilo configuration changes
+
+[Path]
+PathModified=@ROOT@/config.yaml
+PathModified=@ROOT@/claude-kilo.env
+Unit=claude-kilo.reload.service
+
+[Install]
+WantedBy=default.target

@@ -16,4 +16,8 @@ if ! err="$(.venv/bin/python -I -c "$check" 2>&1)"; then
   exit 0
 fi
 echo "$(date '+%F %T') change detected, restarting proxy"
-launchctl kickstart -k "gui/$(id -u)/claude-kilo.proxy"
+case "$(uname)" in
+  Darwin) launchctl kickstart -k "gui/$(id -u)/claude-kilo.proxy" ;;
+  Linux) systemctl --user restart claude-kilo.proxy.service ;;
+  *) echo "claude-kilo-reload: unsupported operating system" >&2; exit 1 ;;
+esac

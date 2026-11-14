@@ -10,7 +10,7 @@ claude-kilo  ->  LiteLLM on 127.0.0.1:4000  ->  Kilo Gateway  ->  Anthropic, Ope
 - Claude models go to Kilo's Anthropic-format endpoint, so prompt caching and thinking keep working.
 - Other models go to Kilo's OpenAI-compatible endpoint; LiteLLM translates.
 - Pick a model per role: main conversation, plan mode, background tasks, each subagent.
-- On macOS the proxy can start at login, restart itself if it dies and reload when you edit its config.
+- On macOS and Linux desktops with systemd, the proxy can start at login, restart itself if it dies and reload when you edit its config.
 
 ## Personal or organization
 
@@ -25,7 +25,7 @@ In both cases the API key is your own: [app.kilo.ai](https://app.kilo.ai), switc
 
 ## Requirements
 
-- macOS (autostart uses launchd; everything else also runs on Linux)
+- macOS or Linux; Linux autostart requires a systemd user session (standard on Arch, Ubuntu and CentOS/Fedora desktops)
 - Claude Code (`claude --version`)
 - Python 3.10 to 3.14, `curl`, `openssl`
 
@@ -44,7 +44,7 @@ For company billing run `./install.sh --org <organization-id>` instead. The inst
 3. checks the key with one 1-token request (402 = no credits, 403 = not a member)
 4. creates `config.yaml` and `claude-kilo.env` from the templates in `config/`
 5. links `claude-kilo` into `~/.local/bin` (`CLAUDE_KILO_BIN_DIR` to change)
-6. offers autostart on macOS
+6. offers autostart on macOS and Linux
 
 Re-run it any time: keys and config are kept. To switch between personal and organization billing, run it again with the other flag; the old `config.yaml` is backed up. Non-interactive: `KILO_API_KEY=... ./install.sh --org <organization-id> --autostart`.
 
@@ -108,22 +108,31 @@ cp config/agents.example.json agents.json
 
 The example adds a `reviewer` on GPT 6.1 Sol and replaces the built-in `Explore` with GLM 5.3 Flash. Each `model` is a name from `config.yaml`. Only `claude-kilo` sessions load `agents.json`; your normal `claude` never sees these agents. A prompt that says "read-only" is not enforcement: only the `tools` list is.
 
-## Autostart and reload (macOS)
+## Autostart and reload
 
-`./install.sh --autostart` installs two LaunchAgents:
+`./install.sh --autostart` installs autostart for your user, not a system-wide root service. The proxy starts at login and restarts within 5 seconds if it dies. A second job watches `config.yaml` and `claude-kilo.env`, validates the YAML, then restarts the proxy. A broken file is logged and the running proxy is left alone.
 
-| Job | What it does |
-| --- | --- |
-| `claude-kilo.proxy` | starts the proxy at login and restarts it within 5 seconds if it dies |
-| `claude-kilo.reload` | watches `config.yaml` and `claude-kilo.env`; validates the YAML, then restarts the proxy. A broken file is logged and the running proxy is left alone |
+On macOS these are the `claude-kilo.proxy` and `claude-kilo.reload` LaunchAgents:
 
 ```bash
 launchctl kickstart -k gui/$(id -u)/claude-kilo.proxy
 launchctl print gui/$(id -u)/claude-kilo.proxy | grep -E 'state|pid'
-tail -f ~/claude-kilo/logs/proxy.log ~/claude-kilo/logs/reload.log
 ```
 
-The key files are not watched: after replacing your Kilo key, run the `kickstart` line. macOS may show a "Background Items Added" notice; if you switch the items off under System Settings, General, Login Items, the proxy will not start at login. Without autostart, run `bin/claude-kilo-proxy` in a terminal and keep it open.
+On Linux these are `claude-kilo.proxy.service` and `claude-kilo.reload.path` in `${XDG_CONFIG_HOME:-~/.config}/systemd/user`:
+
+```bash
+systemctl --user restart claude-kilo.proxy.service
+systemctl --user status claude-kilo.proxy.service claude-kilo.reload.path
+```
+
+Logs for both platforms are in `logs/proxy.log` and `logs/reload.log`:
+
+```bash
+tail -f logs/proxy.log logs/reload.log
+```
+
+The key files are not watched: after replacing your Kilo key, restart the proxy with the command above. macOS may show a "Background Items Added" notice; if you switch the items off under System Settings, General, Login Items, the proxy will not start at login. On Linux the user units start with your login session; root, `sudo`, and enabling lingering are not required. Without autostart, run `bin/claude-kilo-proxy` in a terminal and keep it open.
 
 ## Check it works
 
@@ -160,7 +169,7 @@ It runs a short Claude Code task (write a file, run it, report the output) in a 
 ./uninstall.sh
 ```
 
-It removes the LaunchAgents and the `claude-kilo` link and keeps your config and keys; it prints where they are.
+It removes the LaunchAgents or systemd user units and the `claude-kilo` link, and keeps your config and keys; it prints where they are.
 
 ## License
 

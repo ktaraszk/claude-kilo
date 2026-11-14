@@ -1,0 +1,9 @@
+[Unit]
+Description=Reload Claude Kilo after a configuration change
+
+[Service]
+Type=oneshot
+WorkingDirectory=@ROOT@
+ExecStart=@ROOT@/bin/claude-kilo-reload
+StandardOutput=append:@ROOT@/logs/reload.log
+StandardError=append:@ROOT@/logs/reload.log

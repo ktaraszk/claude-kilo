@@ -15,7 +15,7 @@ usage: ./install.sh [--personal | --org <organization-id>] [--autostart | --no-a
 
   --personal          bill your personal Kilo balance
   --org <id>          bill a Kilo organization (you must be a member)
-  --autostart         start the proxy at login, restart it if it dies, reload on config change (macOS)
+  --autostart         start the proxy at login, restart it if it dies, reload on config change (macOS, Linux)
   --no-autostart      skip that; start the proxy yourself with bin/claude-kilo-proxy
 
 Non-interactive: set KILO_API_KEY (and KILO_ORG_ID) in the environment.
@@ -138,46 +138,72 @@ case ":$PATH:" in
   *) warn "$bin_dir is not on your PATH; add it in your shell profile: export PATH=\"$bin_dir:\$PATH\"" ;;
 esac
 
-if [ "$(uname)" = Darwin ]; then
-  if [ -z "$autostart" ]; then
-    if [ -t 0 ]; then
-      case "$(ask 'Start the proxy at login and reload it on config changes? [Y/n]')" in
-        n|N|no|No) autostart=no ;;
-        *) autostart=yes ;;
+case "$(uname)" in
+  Darwin|Linux)
+    if [ -z "$autostart" ]; then
+      if [ -t 0 ]; then
+        case "$(ask 'Start the proxy at login and reload it on config changes? [Y/n]')" in
+          n|N|no|No) autostart=no ;;
+          *) autostart=yes ;;
+        esac
+      else
+        autostart=no
+      fi
+    fi
+    if [ "$autostart" = yes ]; then
+      case "$(uname)" in
+        Darwin)
+          agents="$HOME/Library/LaunchAgents"
+          mkdir -p "$agents"
+          for job in reload proxy; do
+            launchctl bootout "gui/$(id -u)/claude-kilo.$job" 2>/dev/null || true
+          done
+          ;;
+        Linux)
+          command -v systemctl >/dev/null || die "systemctl is required for autostart on Linux"
+          systemctl --user show-environment >/dev/null 2>&1 \
+            || die "no systemd user manager is available; run this from your desktop login session"
+          units="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+          mkdir -p "$units"
+          systemctl --user stop claude-kilo.reload.path claude-kilo.proxy.service claude-kilo.reload.service 2>/dev/null || true
+          ;;
       esac
-    else
-      autostart=no
-    fi
-  fi
-  if [ "$autostart" = yes ]; then
-    agents="$HOME/Library/LaunchAgents"
-    mkdir -p "$agents"
-    for job in reload proxy; do
-      launchctl bootout "gui/$(id -u)/claude-kilo.$job" 2>/dev/null || true
-    done
-    if curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null; then
-      die "something already answers on 127.0.0.1:$port; stop it (or set KILO_PROXY_PORT in claude-kilo.env) and re-run"
-    fi
-    for job in proxy reload; do
-      sed "s|@ROOT@|$root|g" "$root/launchd/claude-kilo.$job.plist.in" > "$agents/claude-kilo.$job.plist"
-      for attempt in 1 2 3 4 5; do
-        launchctl bootstrap "gui/$(id -u)" "$agents/claude-kilo.$job.plist" 2>/dev/null && break
-        [ "$attempt" = 5 ] && die "launchctl could not load claude-kilo.$job"
+      if curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null; then
+        die "something already answers on 127.0.0.1:$port; stop it (or set KILO_PROXY_PORT in claude-kilo.env) and re-run"
+      fi
+      case "$(uname)" in
+        Darwin)
+          for job in proxy reload; do
+            sed "s|@ROOT@|$root|g" "$root/launchd/claude-kilo.$job.plist.in" > "$agents/claude-kilo.$job.plist"
+            for attempt in 1 2 3 4 5; do
+              launchctl bootstrap "gui/$(id -u)" "$agents/claude-kilo.$job.plist" 2>/dev/null && break
+              [ "$attempt" = 5 ] && die "launchctl could not load claude-kilo.$job"
+              sleep 1
+            done
+          done
+          ;;
+        Linux)
+          for unit in proxy.service reload.service reload.path; do
+            sed "s|@ROOT@|$root|g" "$root/systemd/claude-kilo.$unit.in" > "$units/claude-kilo.$unit"
+          done
+          systemctl --user daemon-reload
+          systemctl --user enable claude-kilo.proxy.service claude-kilo.reload.path
+          systemctl --user start claude-kilo.proxy.service claude-kilo.reload.path
+          ;;
+      esac
+      say "autostart installed (logs in $root/logs)"
+      for _ in $(seq 1 60); do
+        curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null && break
         sleep 1
       done
-    done
-    say "autostart installed (logs in $root/logs)"
-    for _ in $(seq 1 60); do
-      curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null && break
-      sleep 1
-    done
-    if curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null; then
-      say "proxy is up on 127.0.0.1:$port"
-    else
-      warn "proxy is not answering yet; see $root/logs/proxy.log"
+      if curl -sf -m 2 "http://127.0.0.1:$port/health/liveliness" >/dev/null; then
+        say "proxy is up on 127.0.0.1:$port"
+      else
+        warn "proxy is not answering yet; see $root/logs/proxy.log"
+      fi
     fi
-  fi
-fi
+    ;;
+esac
 
 echo
 say "done"
